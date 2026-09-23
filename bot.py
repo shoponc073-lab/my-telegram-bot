@@ -219,8 +219,8 @@ def handle_text(message):
     nagad_num = get_setting("nagad")
 
     if text == "👤 My Account":
-        row = db_query("SELECT balance, is_active, plan_id FROM users WHERE user_id=?", (user_id,), fetchone=True)
-        balance, is_active, plan_id = row[0], row[1], row[2]
+        row = db_query("SELECT balance, is_active, plan_id FROM USERS WHERE user_id=?", (user_id,), fetchone=True) if row: balance, is_active, plan_id = row[0], row[1], row[2] status = "✅ ACTIVE" if is_active else "❌ INACTIVE" plan_name = PLANS[plan_id]["name"] if plan_id and plan_id in PLANS else "None" bot.send_message(user_id, f"👤 Account Details:\n\n🆔 User ID: <code>{user_id}</code>\n💰 Balance: <code>{balance}</code> BDT\n⚡ Status: <code>{status}</code>\n💎 Current Plan: <code>{plan_name}</code>", parse_mode="HTML", reply_markup=markup)
+        
         status = "✅ ACTIVE" if is_active else "❌ INACTIVE"
         plan_name = PLANS[plan_id]["name"] if plan_id and plan_id in PLANS else "None"
         bot.send_message(user_id, f"👤 <b>Account Details</b>\n\n🆔 <b>User ID:</b> <code>{user_id}</code>\n💰 <b>Balance:</b> {balance:.2f} BDT\n⚡ <b>Status:</b> {status}\n💎 <b>Current Plan:</b> {plan_name}")
