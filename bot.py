@@ -2,7 +2,7 @@ import os
 import time
 import random
 import sqlite3
-from flask import Flask
+from flask import Flask, request
 from threading import Thread
 import telebot
 from telebot import types
@@ -33,7 +33,18 @@ PLANS = {
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 app = Flask(__name__)
 
-# Home route for Render health check & UptimeRobot
+# Webhook Route
+WEBHOOK_PATH = f"/{BOT_TOKEN}/"
+
+@app.route(WEBHOOK_PATH, methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return '', 200
+    return 'Forbidden', 403
+
 @app.route('/')
 def home():
     return "Bot is Running smoothly!"
@@ -42,7 +53,6 @@ def home():
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "database.db")
 
-# ==================== DATABASE SETUP ====================
 def init_db():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     cursor = conn.cursor()
@@ -72,7 +82,6 @@ def init_db():
 
 init_db()
 
-# ==================== HELPER FUNCTIONS ====================
 def db_query(query, params=(), fetchone=False, fetchall=False, commit=False):
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     cursor = conn.cursor()
@@ -107,7 +116,7 @@ def get_main_keyboard(user_id):
     )
     return markup
 
-# ==================== ADMIN PAYMENT NUMBER COMMANDS ====================
+# ==================== ADMIN COMMANDS ====================
 @bot.message_handler(commands=['setbkash'])
 def set_bkash_cmd(message):
     if message.from_user.id != ADMIN_ID: return
@@ -116,8 +125,6 @@ def set_bkash_cmd(message):
         new_num = args[1].strip()
         set_setting("bkash", new_num)
         bot.send_message(ADMIN_ID, f"✅ বিকাশ নম্বর পরিবর্তন করে <code>{new_num}</code> করা হয়েছে।")
-    else:
-        bot.send_message(ADMIN_ID, "❌ ব্যবহার পদ্ধতি: <code>/setbkash 017XXXXXXXX</code>")
 
 @bot.message_handler(commands=['setnagad'])
 def set_nagad_cmd(message):
@@ -127,10 +134,8 @@ def set_nagad_cmd(message):
         new_num = args[1].strip()
         set_setting("nagad", new_num)
         bot.send_message(ADMIN_ID, f"✅ নগদ নম্বর পরিবর্তন করে <code>{new_num}</code> করা হয়েছে।")
-    else:
-        bot.send_message(ADMIN_ID, "❌ ব্যবহার পদ্ধতি: <code>/setnagad 018XXXXXXXX</code>")
 
-# ==================== BACKGROUND WORKER (AUTO DAILY PROFIT) ====================
+# ==================== BACKGROUND WORKER ====================
 def background_daily_profit_worker():
     while True:
         try:
@@ -321,20 +326,6 @@ def admin_actions(call):
         db_query("UPDATE users SET is_active=1 WHERE user_id=?", (target_user_id,), commit=True)
         bot.send_message(target_user_id, "🎉 আপনার অ্যাকাউন্ট অ্যাক্টিভ করা হয়েছে।")
         bot.edit_message_text(f"✅ Approved Activation User {target_user_id}", ADMIN_ID, call.message.message_id)
-        row = db_query("SELECT referrer_id FROM users WHERE user_id=?", (target_user_id,), fetchone=True)
-        l1_ref = row[0] if row else None
-        if l1_ref:
-            l1_act = db_query("SELECT is_active FROM users WHERE user_id=?", (l1_ref,), fetchone=True)
-            if l1_act and l1_act[0] == 1:
-                db_query("UPDATE users SET balance = balance + ? WHERE user_id=?", (REF_LEVEL1_BONUS, l1_ref), commit=True)
-                bot.send_message(l1_ref, f"🎉 L1 রেফার বোনাস +{REF_LEVEL1_BONUS} BDT!")
-            row2 = db_query("SELECT referrer_id FROM users WHERE user_id=?", (l1_ref,), fetchone=True)
-            l2_ref = row2[0] if row2 else None
-            if l2_ref:
-                l2_act = db_query("SELECT is_active FROM users WHERE user_id=?", (l2_ref,), fetchone=True)
-                if l2_act and l2_act[0] == 1:
-                    db_query("UPDATE users SET balance = balance + ? WHERE user_id=?", (REF_LEVEL2_BONUS, l2_ref), commit=True)
-                    bot.send_message(l2_ref, f"🎉 L2 রেফার বোনাস +{REF_LEVEL2_BONUS} BDT!")
 
     elif action_type == "rej_act":
         bot.send_message(target_user_id, "❌ অ্যাকাউন্ট অ্যাক্টিভেশন বাতিল হয়েছে।")
@@ -346,12 +337,6 @@ def admin_actions(call):
         db_query("UPDATE users SET plan_id=? WHERE user_id=?", (plan_id, target_user_id), commit=True)
         bot.send_message(target_user_id, f"🎉 {plan['name']} চালু করা হয়েছে।")
         bot.edit_message_text(f"✅ Approved Plan User {target_user_id}", ADMIN_ID, call.message.message_id)
-        row = db_query("SELECT referrer_id FROM users WHERE user_id=?", (target_user_id,), fetchone=True)
-        l1_ref = row[0] if row else None
-        if l1_ref:
-            commission = plan["price"] * PLAN_REF_COMMISSION_PCT
-            db_query("UPDATE users SET balance = balance + ? WHERE user_id=?", (commission, l1_ref), commit=True)
-            bot.send_message(l1_ref, f"💰 প্ল্যান রেফার কমিশন +{commission:.2f} BDT!")
 
     elif action_type == "rej_plan":
         bot.send_message(target_user_id, "❌ প্ল্যান ক্রয় বাতিল হয়েছে।")
@@ -367,24 +352,8 @@ def admin_actions(call):
         bot.send_message(target_user_id, f"❌ উইথড্র বাতিল এবং {w_amount} BDT ফেরত দেওয়া হয়েছে।")
         bot.edit_message_text(f"❌ Rejected Refunded User {target_user_id}", ADMIN_ID, call.message.message_id)
 
-# Function for Telegram Polling
-def run_bot():
-    try:
-        bot.remove_webhook()
-    except Exception as e:
-        print(e)
-    print("Bot Polling Started...")
-    bot.infinity_polling(skip_pending=True)
-
-# ==================== MAIN RUNNER ====================
 if __name__ == "__main__":
-    # Background thread for daily profit
     Thread(target=background_daily_profit_worker, daemon=True).start()
-    
-    # Background thread for Telegram bot polling
-    Thread(target=run_bot, daemon=True).start()
-    
-    # Run Flask Web Server for Render Health Check
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
     
