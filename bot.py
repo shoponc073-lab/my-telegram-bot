@@ -2,7 +2,6 @@ import os
 import time
 import random
 import sqlite3
-from flask import Flask, request
 from threading import Thread
 import telebot
 from telebot import types
@@ -31,27 +30,6 @@ PLANS = {
 }
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
-app = Flask(__name__)
-
-# Webhook Configurations
-WEBHOOK_URL_BASE = "https://my-telegram-bot-1-37u7.onrender.com"
-WEBHOOK_URL_PATH = f"/{BOT_TOKEN}/"
-
-# Webhook Route for Telegram Updates
-@app.route(WEBHOOK_URL_PATH, methods=['POST'])
-def webhook():
-    if request.headers.get('content-type') == 'application/json':
-        json_string = request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_string)
-        bot.process_new_updates([update])
-        return ''
-    else:
-        return 'Invalid Request', 403
-
-# Home Route for UptimeRobot Ping Check
-@app.route('/')
-def home():
-    return "Bot is Alive and Running with Webhook!"
 
 # ==================== DATABASE PATH SETUP ====================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -230,7 +208,7 @@ def handle_text(message):
             bot.send_message(user_id, f"👤 <b>Account Details</b>\n\n🆔 <b>User ID:</b> <code>{user_id}</code>\n💰 <b>Balance:</b> {balance:.2f} BDT\n⚡ <b>Status:</b> {status}\n💎 <b>Current Plan:</b> {plan_name}")
 
     elif text == "⚡ Active Account":
-        msg = f"⚡ <b>Account Activation Process</b>\nঅ্যাক্টিভেশন ফি: <b>{ACTIVATION_FEE} BDT</b>\n\n📲 <b>বিকাশ পার্সোনাল:</b> <code>{bkash_num}</code>\n📲 <b>নগদ পার্সোনাল (সেন্ড মানি):</b> <code>{nagad_num}</code>\n\nটাকা পাঠানোর পর TrxID জমা দিন:"
+        msg = f"⚡ <b>Account Activation Process</b>\nঅ্যাক্টিভেশন ফি: <b>{ACTIVATION_FEE} BDT</b>\n\n📲 <b>বিকাশ পার্সোনাল:</b> <code>{bkash_num}</code>\n📲 <b>নগদ পার্সোনাল:</b> <code>{nagad_num}</code>\n\nটাকা পাঠানোর পর TrxID জমা দিন:"
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("📥 Submit TrxID", callback_data="submit_act_trx"))
         bot.send_message(user_id, msg, reply_markup=markup)
@@ -239,7 +217,7 @@ def handle_text(message):
         msg = "💎 <b>Available VIP Plans</b> 💎\n\n"
         for pid, p in PLANS.items():
             msg += f"📌 <b>{p['name']}</b> | দাম: {p['price']} BDT | আয়: {p['daily']} BDT\n"
-        msg += f"\n📲 <b>বিকাশ পার্সোনাল:</b> <code>{bkash_num}</code>\n📲 <b>নগদ পার্সোনাল :</b> <code>{nagad_num}</code>\n\nযেকোনো প্ল্যানে ক্লিক করুন:"
+        msg += f"\n📲 <b>বিকাশ পার্সোনাল:</b> <code>{bkash_num}</code>\n📲 <b>নগদ পার্সোনাল:</b> <code>{nagad_num}</code>\n\nযেকোনো প্ল্যানে ক্লিক করুন:"
         markup = types.InlineKeyboardMarkup(row_width=2)
         btns = [types.InlineKeyboardButton(p["name"], callback_data=f"buy_plan_{pid}") for pid, p in PLANS.items()]
         markup.add(*btns)
@@ -384,12 +362,13 @@ def admin_actions(call):
 
 # ==================== MAIN RUNNER ====================
 if __name__ == "__main__":
-    # Start Background Thread
     Thread(target=background_daily_profit_worker, daemon=True).start()
     
-    print("Bot is running perfectly with Webhook...")
-    
-    # Run Flask App
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    try:
+        bot.remove_webhook()
+    except Exception as e:
+        print(e)
+        
+    print("Bot is running in polling mode...")
+    bot.infinity_polling(skip_pending=True)
         
