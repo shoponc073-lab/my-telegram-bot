@@ -219,14 +219,15 @@ def handle_text(message):
     nagad_num = get_setting("nagad")
 
     if text == "👤 My Account":
-        row = db_query("SELECT balance, is_active, plan_id FROM USERS WHERE user_id=?", (user_id,), fetchone=True) if row: balance, is_active, plan_id = row[0], row[1], row[2] status = "✅ ACTIVE" if is_active else "❌ INACTIVE" plan_name = PLANS[plan_id]["name"] if plan_id and plan_id in PLANS else "None" bot.send_message(user_id, f"👤 Account Details:\n\n🆔 User ID: <code>{user_id}</code>\n💰 Balance: <code>{balance}</code> BDT\n⚡ Status: <code>{status}</code>\n💎 Current Plan: <code>{plan_name}</code>", parse_mode="HTML", reply_markup=markup)
-        
-        status = "✅ ACTIVE" if is_active else "❌ INACTIVE"
-        plan_name = PLANS[plan_id]["name"] if plan_id and plan_id in PLANS else "None"
-        bot.send_message(user_id, f"👤 <b>Account Details</b>\n\n🆔 <b>User ID:</b> <code>{user_id}</code>\n💰 <b>Balance:</b> {balance:.2f} BDT\n⚡ <b>Status:</b> {status}\n💎 <b>Current Plan:</b> {plan_name}")
+        row = db_query("SELECT balance, is_active, plan_id FROM users WHERE user_id=?", (user_id,), fetchone=True)
+        if row:
+            balance, is_active, plan_id = row[0], row[1], row[2]
+            status = "✅ ACTIVE" if is_active else "❌ INACTIVE"
+            plan_name = PLANS[plan_id]["name"] if plan_id and plan_id in PLANS else "None"
+            bot.send_message(user_id, f"👤 <b>Account Details</b>\n\n🆔 <b>User ID:</b> <code>{user_id}</code>\n💰 <b>Balance:</b> {balance:.2f} BDT\n⚡ <b>Status:</b> {status}\n💎 <b>Current Plan:</b> {plan_name}")
 
     elif text == "⚡ Active Account":
-        msg = f"⚡ <b>Account Activation Process</b>\nঅ্যাক্টিভেশন ফি: <b>{ACTIVATION_FEE} BDT</b>\n\n📲 <b>বিকাশ:</b> <code>{bkash_num}</code>\n📲 <b>নগদ:</b> <code>{nagad_num}</code>\n\nটাকা পাঠানোর পর TrxID জমা দিন:"
+        msg = f"⚡ <b>Account Activation Process</b>\nঅ্যাক্টিভেশন ফি: <b>{ACTIVATION_FEE} BDT</b>\n\n📲 <b>বিকাশ পার্সোনাল:</b> <code>{bkash_num}</code>\n📲 <b>নগদ পার্সোনাল (সেন্ড মানি):</b> <code>{nagad_num}</code>\n\nটাকা পাঠানোর পর TrxID জমা দিন:"
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("📥 Submit TrxID", callback_data="submit_act_trx"))
         bot.send_message(user_id, msg, reply_markup=markup)
@@ -235,7 +236,7 @@ def handle_text(message):
         msg = "💎 <b>Available VIP Plans</b> 💎\n\n"
         for pid, p in PLANS.items():
             msg += f"📌 <b>{p['name']}</b> | দাম: {p['price']} BDT | আয়: {p['daily']} BDT\n"
-        msg += f"\n📲 <b>বিকাশ:</b> <code>{bkash_num}</code>\n📲 <b>নগদ:</b> <code>{nagad_num}</code>\n\nযেকোনো প্ল্যানে ক্লিক করুন:"
+        msg += f"\n📲 <b>বিকাশ পার্সোনাল:</b> <code>{bkash_num}</code>\n📲 <b>নগদ পার্সোনাল (সেন্ড মানি):</b> <code>{nagad_num}</code>\n\nযেকোনো প্ল্যানে ক্লিক করুন:"
         markup = types.InlineKeyboardMarkup(row_width=2)
         btns = [types.InlineKeyboardButton(p["name"], callback_data=f"buy_plan_{pid}") for pid, p in PLANS.items()]
         markup.add(*btns)
@@ -248,7 +249,7 @@ def handle_text(message):
 
     elif text == "💸 Withdraw":
         row = db_query("SELECT balance, is_active FROM users WHERE user_id=?", (user_id,), fetchone=True)
-        balance, is_active = row[0], row[1]
+        balance, is_active = row[0], row[1] if row else (0.0, 0)
         if not is_active:
             bot.send_message(user_id, "❌ টাকা উত্তোলনের জন্য আগে অ্যাকাউন্ট একটিভ করুন।")
             return
@@ -379,9 +380,6 @@ def admin_actions(call):
 if __name__ == "__main__":
     # Start Background Thread
     Thread(target=background_daily_profit_worker, daemon=True).start()
-    
-    # Set Webhook before running
-   
     
     print("Bot is running perfectly with Webhook...")
     
