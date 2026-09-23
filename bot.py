@@ -184,7 +184,7 @@ def start_cmd(message):
         if ref_candidate != user_id: referrer_id = ref_candidate
 
     user = db_query("SELECT user_id FROM users WHERE user_id=?", (user_id,), fetchone=True)
-    if not user: db_query("INSERT INTO users (user_id, referrer_id) VALUES (?, ?)", (user_id, referrer_id), commit=True)
+    if not user: db_query("INSERT OR IGNORE INTO users (user_id, referrer_id) VALUES (?, ?)", (user_id, referrer_id), commit=True)
 
     if not is_channel_member(user_id):
         markup = types.InlineKeyboardMarkup()
