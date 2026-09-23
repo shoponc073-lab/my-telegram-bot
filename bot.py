@@ -2,7 +2,7 @@ import os
 import time
 import random
 import sqlite3
-from flask import Flask, request, render_template_string
+from flask import Flask, request
 from threading import Thread
 import telebot
 from telebot import types
@@ -33,9 +33,25 @@ PLANS = {
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 app = Flask(__name__)
 
+# Webhook Configurations
+WEBHOOK_URL_BASE = "https://my-telegram-bot-1-37u7.onrender.com"
+WEBHOOK_URL_PATH = f"/{BOT_TOKEN}/"
+
+# Webhook Route for Telegram Updates
+@app.route(WEBHOOK_URL_PATH, methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return ''
+    else:
+        return 'Invalid Request', 403
+
+# Home Route for UptimeRobot Ping Check
 @app.route('/')
 def home():
-    return "Bot is Alive!"
+    return "Bot is Alive and Running with Webhook!"
 
 # ==================== DATABASE PATH SETUP ====================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -361,12 +377,16 @@ def admin_actions(call):
 
 # ==================== MAIN RUNNER ====================
 if __name__ == "__main__":
-    def run_flask():
-        port = int(os.environ.get("PORT", 5000))
-        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
-    
-    Thread(target=run_flask, daemon=True).start()
+    # Start Background Thread
     Thread(target=background_daily_profit_worker, daemon=True).start()
     
-    print("Bot is running perfectly without Daily Tasks...")
-    bot.polling(none_stop=True)
+    # Set Webhook before running
+    bot.remove_webhook()
+    bot.set_webhook(url=WEBHOOK_URL_BASE + WEBHOOK_URL_PATH)
+    
+    print("Bot is running perfectly with Webhook...")
+    
+    # Run Flask App
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+        
