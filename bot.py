@@ -2,6 +2,7 @@ import os
 import time
 import random
 import sqlite3
+from flask import Flask
 from threading import Thread
 import telebot
 from telebot import types
@@ -30,6 +31,12 @@ PLANS = {
 }
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
+app = Flask(__name__)
+
+# Home route for Render health check & UptimeRobot
+@app.route('/')
+def home():
+    return "Bot is Running smoothly!"
 
 # ==================== DATABASE PATH SETUP ====================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -360,15 +367,24 @@ def admin_actions(call):
         bot.send_message(target_user_id, f"❌ উইথড্র বাতিল এবং {w_amount} BDT ফেরত দেওয়া হয়েছে।")
         bot.edit_message_text(f"❌ Rejected Refunded User {target_user_id}", ADMIN_ID, call.message.message_id)
 
-# ==================== MAIN RUNNER ====================
-if __name__ == "__main__":
-    Thread(target=background_daily_profit_worker, daemon=True).start()
-    
+# Function for Telegram Polling
+def run_bot():
     try:
         bot.remove_webhook()
     except Exception as e:
         print(e)
-        
-    print("Bot is running in polling mode...")
+    print("Bot Polling Started...")
     bot.infinity_polling(skip_pending=True)
-        
+
+# ==================== MAIN RUNNER ====================
+if __name__ == "__main__":
+    # Background thread for daily profit
+    Thread(target=background_daily_profit_worker, daemon=True).start()
+    
+    # Background thread for Telegram bot polling
+    Thread(target=run_bot, daemon=True).start()
+    
+    # Run Flask Web Server for Render Health Check
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+    
