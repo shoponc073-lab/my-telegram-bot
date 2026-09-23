@@ -381,8 +381,7 @@ if __name__ == "__main__":
     Thread(target=background_daily_profit_worker, daemon=True).start()
     
     # Set Webhook before running
-    bot.remove_webhook()
-    bot.set_webhook(url=WEBHOOK_URL_BASE + WEBHOOK_URL_PATH)
+   
     
     print("Bot is running perfectly with Webhook...")
     
