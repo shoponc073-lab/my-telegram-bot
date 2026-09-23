@@ -80,7 +80,6 @@ def init_db():
                         key TEXT PRIMARY KEY, 
                         value TEXT)''')
     
-    # ডিফল্ট পেমেন্ট নাম্বার সেট করা
     cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('bkash', '01833084108')")
     cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('nagad', '01833084108')")
     conn.commit()
@@ -196,8 +195,12 @@ def start_cmd(message):
 
 @bot.callback_query_handler(func=lambda call: call.data == "check_join")
 def check_join_callback(call):
+    bot.answer_callback_query(call.id)
     if is_channel_member(call.from_user.id):
-        bot.delete_message(call.from_user.id, call.message.message_id)
+        try:
+            bot.delete_message(call.from_user.id, call.message.message_id)
+        except Exception:
+            pass
         send_welcome(call.from_user.id)
     else:
         bot.answer_callback_query(call.id, "❌ আপনি এখনো চ্যানেলে জয়েন করেননি!", show_alert=True)
@@ -236,7 +239,7 @@ def handle_text(message):
         msg = "💎 <b>Available VIP Plans</b> 💎\n\n"
         for pid, p in PLANS.items():
             msg += f"📌 <b>{p['name']}</b> | দাম: {p['price']} BDT | আয়: {p['daily']} BDT\n"
-        msg += f"\n📲 <b>বিকাশ পার্সোনাল:</b> <code>{bkash_num}</code>\n📲 <b>নগদ পার্সোনাল (সেন্ড মানি):</b> <code>{nagad_num}</code>\n\nযেকোনো প্ল্যানে ক্লিক করুন:"
+        msg += f"\n📲 <b>বিকাশ পার্সোনাল:</b> <code>{bkash_num}</code>\n📲 <b>নগদ পার্সোনাল :</b> <code>{nagad_num}</code>\n\nযেকোনো প্ল্যানে ক্লিক করুন:"
         markup = types.InlineKeyboardMarkup(row_width=2)
         btns = [types.InlineKeyboardButton(p["name"], callback_data=f"buy_plan_{pid}") for pid, p in PLANS.items()]
         markup.add(*btns)
@@ -267,23 +270,25 @@ def handle_text(message):
 # ==================== STEP HANDLERS & CALLBACKS ====================
 @bot.callback_query_handler(func=lambda call: call.data == "submit_act_trx")
 def submit_act_trx_cb(call):
-    msg = bot.send_message(call.from_user.id, "📝 পেমেন্ট ট্রানজেকশন আইডি (TrxID) দিন:")
+    bot.answer_callback_query(call.id)
+    msg = bot.send_message(call.from_user.id, "📝 পেমেন্ট ট্রানজেকশন আইডি (TrxID) লিখে পাঠান:")
     bot.register_next_step_handler(msg, process_act_trx)
 
 def process_act_trx(message):
     trx_id = message.text.strip()
     user_id = message.from_user.id
     db_query("INSERT INTO pending_requests (user_id, req_type, amount, trx_id) VALUES (?, ?, ?, ?)", (user_id, "activation", ACTIVATION_FEE, trx_id), commit=True)
-    bot.send_message(user_id, "✅ রিকোয়েস্ট জমা হয়েছে।")
+    bot.send_message(user_id, "✅ আপনার অ্যাক্টিভেশন TrxID জমা হয়েছে। এডমিন ভেরিফাই করে অনুমোদন করবে।")
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("✅ Approve", callback_data=f"app_act_{user_id}"), types.InlineKeyboardButton("❌ Reject", callback_data=f"rej_act_{user_id}"))
     bot.send_message(ADMIN_ID, f"📩 <b>Activation Request!</b>\nUser: <code>{user_id}</code>\nTrxID: <code>{trx_id}</code>", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("buy_plan_"))
 def buy_plan_cb(call):
+    bot.answer_callback_query(call.id)
     plan_id = call.data.split("_")[2]
     plan = PLANS[plan_id]
-    msg = bot.send_message(call.from_user.id, f"📝 <b>{plan['name']}</b> কিনতে টাকা পাঠিয়ে TrxID দিন:")
+    msg = bot.send_message(call.from_user.id, f"📝 <b>{plan['name']}</b> ({plan['price']} BDT) কিনতে টাকা পাঠিয়ে নিচে ট্রানজেকশন আইডি (TrxID) লিখে পাঠান:")
     bot.register_next_step_handler(msg, process_plan_trx, plan_id)
 
 def process_plan_trx(message, plan_id):
@@ -291,7 +296,7 @@ def process_plan_trx(message, plan_id):
     user_id = message.from_user.id
     plan = PLANS[plan_id]
     db_query("INSERT INTO pending_requests (user_id, req_type, amount, trx_id, extra_data) VALUES (?, ?, ?, ?, ?)", (user_id, "plan", plan["price"], trx_id, plan_id), commit=True)
-    bot.send_message(user_id, f"✅ রিকোয়েস্ট জমা হয়েছে।")
+    bot.send_message(user_id, f"✅ আপনার <b>{plan['name']}</b> ক্রয়ের TrxID জমা হয়েছে। এডমিন ভেরিফাই করে চালু করে দেবে।")
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("✅ Approve", callback_data=f"app_plan_{user_id}_{plan_id}"), types.InlineKeyboardButton("❌ Reject", callback_data=f"rej_plan_{user_id}"))
     bot.send_message(ADMIN_ID, f"📩 <b>Plan Request!</b>\nUser: <code>{user_id}</code>\nPlan: {plan['name']}\nTrxID: <code>{trx_id}</code>", reply_markup=markup)
@@ -321,6 +326,7 @@ def process_withdraw_amount(message, number):
 # ==================== ADMIN ACTIONS ====================
 @bot.callback_query_handler(func=lambda call: call.data.startswith(("app_act_", "rej_act_", "app_plan_", "rej_plan_", "app_wdr_", "rej_wdr_")))
 def admin_actions(call):
+    bot.answer_callback_query(call.id)
     if call.from_user.id != ADMIN_ID: return
     data = call.data.split("_")
     action_type = data[0] + "_" + data[1]
