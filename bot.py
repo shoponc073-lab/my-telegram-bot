@@ -7,7 +7,8 @@ from telebot import types
 import sqlite3
 
 # ================= CONFIGURATION =================
-TOKEN = "7821617300:AAHQi-pGWD3zToiU468uC8c1bCYoI21yB5M"  # আপনার বট টোকেন
+TOKEN = "8621376781:AAG8O-3R8Hj7CVex1AeQiC1KLiSVeq4b89M"
+  # আপনার বট টোকেন
 ADMIN_ID = 5410884108                                   # আপনার এডমিন আইডি
 CHANNEL_USERNAME = "@earnmoneybd10"
 SUPPORT_USERNAME = "bad_mon_100"
