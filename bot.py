@@ -7,12 +7,11 @@ from telebot import types
 import sqlite3
 
 # ================= CONFIGURATION =================
-TOKEN = "8621376781:AAG8O-3R8Hj7CVex1AeQiC1KLiSVeq4b89M"
-  # আপনার বট টোকেন
-ADMIN_ID = 5410884108                                   # আপনার এডমিন আইডি
-CHANNEL_USERNAME = "@earnmoneybd10"
-SUPPORT_USERNAME = "bad_mon_100"
-CHANNEL_LINK = "https://t.me/earnmoneybd10"
+TOKEN = "8621376781:AAG8O-3R8Hj7CVex1AeQiC1KLiSVeq4b89M"  # আপনার বট টোকেন
+ADMIN_ID = 5547760831                                   # আপনার এডমিন আইডি
+CHANNEL_USERNAME = "@workerbd1"                      # আপনার অফিশিয়াল চ্যানেল ইউজারনেম
+SUPPORT_USERNAME = "@ad_min_100"                         # আপনার সাপোর্ট ইউজারনেম
+CHANNEL_LINK = "https://t.me/workerbd1"              # আপনার চ্যানেল লিংক
 
 ACTIVATION_FEE = 100.0
 MIN_WITHDRAW = 50.0
@@ -35,7 +34,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot is running 24/7!"
+    return "Worker BD Bot is running 24/7!"
 
 def run_flask():
     app.run(host='0.0.0.0', port=10000)
@@ -124,10 +123,22 @@ def send_welcome(message):
     if not is_channel_member(user_id):
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("📢 Join Channel", url=CHANNEL_LINK))
-        bot.send_message(user_id, "⚠️ **বট ব্যবহার করার জন্য প্রথমে আমাদের চ্যানেলে জয়েন করুন!**", reply_markup=markup)
+        
+        welcome_channel_msg = (
+            "🔥 <b>Worker BD-এ আপনাকে স্বাগতম!</b> 🔥\n\n"
+            "বটটি ব্যবহার করে প্রতিদিন ভালো পরিমাণ টাকা আয় করতে পারবেন ১০০% বিশ্বস্ততার সাথে! "
+            "আমাদের কাজের আপডেট, পেমেন্ট প্রুফ এবং প্রয়োজনীয় সকল নোটিশ সবার আগে পেতে আমাদের অফিশিয়াল টেলিগ্রাম চ্যানেলে যুক্ত হওয়া বাধ্যতামূলক।\n\n"
+            "👉 <b>নিচের বাটন চেপে চ্যানেলে জয়েন করুন এবং আবার স্টার্ট দিন!</b>"
+        )
+        bot.send_message(user_id, welcome_channel_msg, reply_markup=markup)
         return
 
-    bot.send_message(user_id, "<b>👋 স্বাগতম! আমাদের অফিসিয়াল Earning Bot-এ!</b>", reply_markup=get_main_keyboard())
+    welcome_main_msg = (
+        "<b>👋 স্বাগতম! Worker BD-এর অফিশিয়াল বটে!</b>\n\n"
+        "এখানে আপনি অ্যাকাউন্ট অ্যাক্টিভ করে এবং VIP প্ল্যান নিয়ে দৈনিক ইনকাম করতে পারবেন। "
+        "নিচের মেনু থেকে আপনার কাঙ্ক্ষিত অপশনটি বেছে নিন:"
+    )
+    bot.send_message(user_id, welcome_main_msg, reply_markup=get_main_keyboard())
 
 # ================= ADMIN COMMANDS =================
 @bot.message_handler(commands=['active'])
@@ -144,14 +155,14 @@ def admin_active_user(message):
 
         db_query("UPDATE USERS SET is_active=1 WHERE user_id=?", (target_id,), commit=True)
         bot.send_message(message.chat.id, f"✅ User <code>{target_id}</code> এর একাউন্ট সফলভাবে Active করা হয়েছে!")
-        bot.send_message(target_id, "🎉 **অভিনন্দন! আপনার অ্যাকাউন্টটি সফলভাবে সক্রিয় (Active) করা হয়েছে!**")
+        bot.send_message(target_id, "🎉 <b>অভিনন্দন! Worker BD-এ আপনার অ্যাকাউন্টটি সফলভাবে সক্রিয় (Active) করা হয়েছে!</b>")
         
         # Level 1 রেফারেল বোনাস (৳৪০)
         if user['ref_by'] and user['ref_by'] != 0:
             l1_id = user['ref_by']
             db_query("UPDATE USERS SET balance = balance + ? WHERE user_id=?", (REF_LEVEL1_BONUS, l1_id), commit=True)
             try:
-                bot.send_message(l1_id, f"🎉 **রেফারেল বোনাস (Level 1)!**\nআপনার রেফার করা ইউজার (<code>{target_id}</code>) অ্যাকাউন্ট অ্যাক্টিভ করায় আপনি <b>{REF_LEVEL1_BONUS:.2f} BDT</b> বোনাস পেয়েছেন!")
+                bot.send_message(l1_id, f"🎉 <b>রেফারেল বোনাস (Level 1)!</b>\nআপনার রেফার করা ইউজার (<code>{target_id}</code>) অ্যাকাউন্ট অ্যাক্টিভ করায় আপনি <b>{REF_LEVEL1_BONUS:.2f} BDT</b> বোনাস পেয়েছেন!")
             except Exception:
                 pass
 
@@ -161,7 +172,7 @@ def admin_active_user(message):
                 l2_id = l1_user['ref_by']
                 db_query("UPDATE USERS SET balance = balance + ? WHERE user_id=?", (REF_LEVEL2_BONUS, l2_id), commit=True)
                 try:
-                    bot.send_message(l2_id, f"🎉 **রেফারেল বোনাস (Level 2)!**\nআপনার দলের কোনো ইউজার অ্যাকাউন্ট অ্যাক্টিভ করায় আপনি <b>{REF_LEVEL2_BONUS:.2f} BDT</b> বোনাস পেয়েছেন!")
+                    bot.send_message(l2_id, f"🎉 <b>রেফারেল বোনাস (Level 2)!</b>\nআপনার টিমের একজন ইউজার অ্যাকাউন্ট অ্যাক্টিভ করায় আপনি <b>{REF_LEVEL2_BONUS:.2f} BDT</b> বোনাস পেয়েছেন!")
                 except Exception:
                     pass
 
@@ -186,7 +197,7 @@ def admin_set_plan(message):
             pinfo = PLANS[plan_id]
             db_query("UPDATE USERS SET plan_id=? WHERE user_id=?", (plan_id, target_id), commit=True)
             bot.send_message(message.chat.id, f"✅ User <code>{target_id}</code> এর জন্য {pinfo['name']} এক্টিভ করা হয়েছে!")
-            bot.send_message(target_id, f"💎 **অভিনন্দন! আপনার {pinfo['name']} সফলভাবে চালু করা হয়েছে!**")
+            bot.send_message(target_id, f"💎 <b>অভিনন্দন! Worker BD-এ আপনার {pinfo['name']} সফলভাবে চালু করা হয়েছে!</b>")
             
             # প্ল্যান বিক্রির রেফার কমিশন (২০%)
             if user['ref_by'] and user['ref_by'] != 0:
@@ -194,7 +205,7 @@ def admin_set_plan(message):
                 commission = (pinfo['price'] * PLAN_REF_COMMISSION) / 100.0
                 db_query("UPDATE USERS SET balance = balance + ? WHERE user_id=?", (commission, referrer_id), commit=True)
                 try:
-                    bot.send_message(referrer_id, f"🎉 **প্ল্যান রেফারেল কমিশন!**\nআপনার রেফার করা ইউজার (<code>{target_id}</code>) {pinfo['name']} কেনায় আপনি <b>{commission:.2f} BDT</b> (২০%) কমিশন পেয়েছেন!")
+                    bot.send_message(referrer_id, f"🎉 <b>প্ল্যান রেফারেল কমিশন!</b>\nআপনার রেফার করা ইউজার (<code>{target_id}</code>) {pinfo['name']} কেনায় আপনি <b>{commission:.2f} BDT</b> (২০%) কমিশন পেয়েছেন!")
                 except Exception:
                     pass
         else:
@@ -209,7 +220,7 @@ def set_bkash(message):
     try:
         num = message.text.split()[1]
         db_query("INSERT OR REPLACE INTO SETTINGS (key, value) VALUES ('bkash', ?)", (num,), commit=True)
-        bot.send_message(message.chat.id, f"✅ বিকাশের নম্বর আপডেট হয়েছে: {num}")
+        bot.send_message(message.chat.id, f"✅ বিকাশ পার্সোনাল নম্বর আপডেট হয়েছে: {num}")
     except Exception:
         bot.send_message(message.chat.id, "❌ নিয়ম: `/setbkash 017XXXXXXXX`")
 
@@ -220,7 +231,7 @@ def set_nagad(message):
     try:
         num = message.text.split()[1]
         db_query("INSERT OR REPLACE INTO SETTINGS (key, value) VALUES ('nagad', ?)", (num,), commit=True)
-        bot.send_message(message.chat.id, f"✅ নগদের নম্বর আপডেট হয়েছে: {num}")
+        bot.send_message(message.chat.id, f"✅ নগদ পার্সোনাল নম্বর আপডেট হয়েছে: {num}")
     except Exception:
         bot.send_message(message.chat.id, "❌ নিয়ম: `/setnagad 018XXXXXXXX`")
 
@@ -237,23 +248,23 @@ def handle_text(message):
         plan_id = str(user['plan_id']) if user and user['plan_id'] else "None"
         plan_name = PLANS[plan_id]['name'] if plan_id in PLANS else "None"
         
-        msg = f"<b>👤 Account Details:</b>\n\n🆔 User ID: <code>{user_id}</code>\n💰 Balance: <b>{bal:.2f} BDT</b>\n⚡ Status: <b>{status}</b>\n💎 Active Plan: <b>{plan_name}</b>"
+        msg = f"<b>👤 Worker BD Account Details:</b>\n\n🆔 User ID: <code>{user_id}</code>\n💰 Balance: <b>{bal:.2f} BDT</b>\n⚡ Status: <b>{status}</b>\n💎 Active Plan: <b>{plan_name}</b>"
         bot.send_message(user_id, msg)
 
     elif text == "⚡ Active Account":
         bkash = get_setting('bkash')
         nagad = get_setting('nagad')
-        msg = f"<b>⚡ Account Activation Process:</b>\n\nঅ্যাকাউন্ট অ্যাক্টিভেশন ফি: <b>{ACTIVATION_FEE} BDT</b>\n\nSend Money Number:\n📌 bKash: <code>{bkash}</code>\n📌 Nagad: <code>{nagad}</code>\n\n⚠️ <b>টাকা পাঠানোর পর আপনার ইউজার আইডি (<code>{user_id}</code>) সহ এডমিনকে মেসেজ দিন।</b>\n\n🎧 Admin Username: @{SUPPORT_USERNAME}"
+        msg = f"<b>⚡ Account Activation Process (Worker BD):</b>\n\nঅ্যাকাউন্ট অ্যাক্টিভেশন ফি: <b>{ACTIVATION_FEE} BDT</b>\n\nSend Money Number:\n📌 bKash (Personal): <code>{bkash}</code>\n📌 Nagad (Personal): <code>{nagad}</code>\n\n⚠️ <b>টাকা পাঠানোর পর আপনার ইউজার আইডি (<code>{user_id}</code>) সহ এডমিনকে মেসেজ দিন।</b>\n\n🎧 Admin Username: @{SUPPORT_USERNAME}"
         bot.send_message(user_id, msg)
 
     elif text == "💎 VIP Plan":
         bkash = get_setting('bkash')
         nagad = get_setting('nagad')
-        msg = "<b>💎 VIP Plans List:</b>\n\n"
+        msg = "<b>💎 VIP Plans List (Worker BD):</b>\n\n"
         for pid, pinfo in PLANS.items():
             msg += f"🔹 <b>{pinfo['name']}</b> (ID: {pid}): দাম <b>{pinfo['price']} BDT</b> | দৈনিক: <b>{pinfo['daily']} BDT</b>\n"
         
-        msg += f"\nSend Money Number:\n📌 bKash: <code>{bkash}</code>\n📌 Nagad: <code>{nagad}</code>\n\n⚠️ <b>প্ল্যান কিনতে টাকা পাঠিয়ে আপনার ইউজার আইডি (<code>{user_id}</code>) সহ এডমিনের সাথে যোগাযোগ করুন।</b>\n\n🎧 Admin: @{SUPPORT_USERNAME}"
+        msg += f"\nSend Money Number:\n📌 bKash (Personal): <code>{bkash}</code>\n📌 Nagad (Personal): <code>{nagad}</code>\n\n⚠️ <b>প্ল্যান কিনতে টাকা পাঠিয়ে আপনার ইউজার আইডি (<code>{user_id}</code>) সহ এডমিনের সাথে যোগাযোগ করুন।</b>\n\n🎧 Admin: @{SUPPORT_USERNAME}"
         bot.send_message(user_id, msg)
 
     elif text == "💸 Withdraw":
@@ -268,11 +279,11 @@ def handle_text(message):
     elif text == "🔗 Refer & Earn":
         bot_info = bot.get_me()
         ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
-        msg = f"<b>🔗 Refer & Earn:</b>\n\nআপনার রেফারেল লিংক:\n<code>{ref_link}</code>\n\nরেফারাল বোনাস:\n- Level 1 একাউন্ট এক্টিভ বোনাস: {REF_LEVEL1_BONUS} BDT\n- Level 2 একাউন্ট এক্টিভ বোনাস: {REF_LEVEL2_BONUS} BDT\n- প্ল্যান ক্রয়ের কমিশন: {PLAN_REF_COMMISSION}%"
+        msg = f"<b>🔗 Refer & Earn (Worker BD):</b>\n\nআপনার রেফারেল লিংক:\n<code>{ref_link}</code>\n\nরেফারাল বোনাস:\n- Level 1 একাউন্ট এক্টিভ বোনাস: {REF_LEVEL1_BONUS} BDT\n- Level 2 একাউন্ট এক্টিভ বোনাস: {REF_LEVEL2_BONUS} BDT\n- প্ল্যান ক্রয়ের কমিশন: {PLAN_REF_COMMISSION}%"
         bot.send_message(user_id, msg)
 
     elif text == "🎧 Support":
-        bot.send_message(user_id, f"🎧 আমাদের এডমিনের সাথে যোগাযোগ করতে মেসেজ দিন: @{SUPPORT_USERNAME}")
+        bot.send_message(user_id, f"🎧 Worker BD এডমিনের সাথে যোগাযোগ করতে মেসেজ দিন: @{SUPPORT_USERNAME}")
 
 def process_withdraw_amount(message):
     try:
@@ -291,8 +302,8 @@ def process_withdraw_number(message, amount):
     number = message.text.strip()
     user_id = message.from_user.id
     db_query("UPDATE USERS SET balance = balance - ? WHERE user_id=?", (amount, user_id), commit=True)
-    bot.send_message(user_id, f"✅ **উইথড্র রিকোয়েস্ট জমা হয়েছে!**\nপরিমাণ: {amount} BDT\nনম্বর: {number}")
-    bot.send_message(ADMIN_ID, f"💸 **Withdraw Request:**\nUser ID: `{user_id}`\nAmount: {amount} BDT\nNumber: `{number}`")
+    bot.send_message(user_id, f"✅ <b>উইথড্র রিকোয়েস্ট জমা হয়েছে!</b>\nপরিমাণ: {amount} BDT\nনম্বর: {number}")
+    bot.send_message(ADMIN_ID, f"💸 <b>Withdraw Request:</b>\nUser ID: <code>{user_id}</code>\nAmount: {amount} BDT\nNumber: <code>{number}</code>")
 
 # Clear Webhook
 requests.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook?drop_pending_updates=true")
@@ -300,4 +311,3 @@ requests.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook?drop_pending_up
 if __name__ == "__main__":
     Thread(target=run_flask).start()
     bot.infinity_polling()
-            
