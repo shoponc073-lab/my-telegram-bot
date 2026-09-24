@@ -213,6 +213,63 @@ def admin_set_plan(message):
     except Exception:
         bot.send_message(message.chat.id, "❌ নিয়ম: `/plan <user_id> <plan_id>` (যেমন: `/plan 123456789 5`)")
 
+@bot.message_handler(commands=['wdapprove'])
+def admin_wd_approve(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    try:
+        args = message.text.split()
+        target_id = int(args[1])
+        amount = float(args[2])
+        
+        user = db_query("SELECT balance FROM USERS WHERE user_id=?", (target_id,), fetchone=True)
+        if not user or user['balance'] < amount:
+            bot.send_message(message.chat.id, "❌ ইউজারের ব্যালেন্স পর্যাপ্ত নেই বা আইডি পাওয়া যায়নি!")
+            return
+
+        # ব্যালেন্স কেটে নেওয়া
+        db_query("UPDATE USERS SET balance = balance - ? WHERE user_id=?", (amount, target_id), commit=True)
+        
+        bot.send_message(message.chat.id, f"✅ <b>User {target_id} এর {amount} BDT উইথড্র সফলভাবে Confirm করা হয়েছে!</b>")
+        
+        success_msg = (
+            f"🎉 <b>কংগ্রাচুলেশন! আপনার উইথড্র সফল হয়েছে!</b>\n\n"
+            f"💰 পরিমাণ: <b>{amount:.2f} BDT</b>\n"
+            f"✅ স্ট্যাটাস: <b>Withdraw Success / Approved</b>\n\n"
+            f"Worker BD-এর সাথে থাকার জন্য ধন্যবাদ!"
+        )
+        try:
+            bot.send_message(target_id, success_msg)
+        except Exception:
+            pass
+
+    except Exception:
+        bot.send_message(message.chat.id, "❌ নিয়ম: `/wdapprove <user_id> <amount>`\nউদাহরণ: `/wdapprove 123456789 50`")
+
+@bot.message_handler(commands=['wdreject'])
+def admin_wd_reject(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    try:
+        args = message.text.split()
+        target_id = int(args[1])
+        amount = float(args[2])
+
+        bot.send_message(message.chat.id, f"❌ <b>User {target_id} এর {amount} BDT উইথড্র বাতিল করা হয়েছে!</b>")
+        
+        reject_msg = (
+            f"❌ <b>দুঃখিত! আপনার উইথড্র রিকোয়েস্টটি বাতিল করা হয়েছে।</b>\n\n"
+            f"💰 পরিমাণ: <b>{amount:.2f} BDT</b>\n\n"
+            f"দয়া করে সাপোর্ট আইডি বা এডমিনের সাথে যোগাযোগ করুন: @{SUPPORT_USERNAME}"
+        )
+        try:
+            bot.send_message(target_id, reject_msg)
+        except Exception:
+            pass
+
+    except Exception:
+        bot.send_message(message.chat.id, "❌ নিয়ম: `/wdreject <user_id> <amount>`\nউদাহরণ: `/wdreject 123456789 50`")
+
 @bot.message_handler(commands=['setbkash'])
 def set_bkash(message):
     if message.from_user.id != ADMIN_ID:
@@ -306,71 +363,18 @@ def process_withdraw_number(message, amount):
     # ইউজারকে পেন্ডিং নোটিফিকেশন দেওয়া
     bot.send_message(user_id, f"⏳ <b>আপনার উইথড্র রিকোয়েস্টটি পেন্ডিং রয়েছে!</b>\n\nপরিমাণ: <b>{amount:.2f} BDT</b>\nনম্বর: <code>{number}</code>\n\nএডমিন রিভিউ করার পর আপনার পেমেন্ট সফল করা হবে।")
     
-    # এডমিনকে এপ্রুভ ও রিজেক্ট বাটনের নোটিফিকেশন পাঠানো
-    markup = types.InlineKeyboardMarkup()
-    btn_approve = types.InlineKeyboardButton("✅ Approve", callback_data=f"wd_app_{user_id}_{amount}_{number}")
-    btn_reject = types.InlineKeyboardButton("❌ Reject", callback_data=f"wd_rej_{user_id}_{amount}")
-    markup.add(btn_approve, btn_reject)
-    
-    bot.send_message(
-        ADMIN_ID, 
-        f"💸 <b>নতুন Withdraw Request (Pending):</b>\n\nUser ID: <code>{user_id}</code>\nAmount: <b>{amount:.2f} BDT</b>\nNumber: <code>{number}</code>", 
-        reply_markup=markup
+    # এডমিনকে কমান্ড কপি করার সুবিধাসহ নোটিফিকেশন পাঠানো
+    admin_notif = (
+        f"💸 <b>নতুন Withdraw Request (Pending):</b>\n\n"
+        f"🆔 User ID: <code>{user_id}</code>\n"
+        f"💰 Amount: <b>{amount:.2f} BDT</b>\n"
+        f"📱 Number: <code>{number}</code>\n\n"
+        f"<b>এডমিন অ্যাকশন কমান্ড:</b>\n"
+        f"✅ Approve করতে: <code>/wdapprove {user_id} {amount}</code>\n"
+        f"❌ Reject করতে: <code>/wdreject {user_id} {amount}</code>"
     )
-
-# ================= CALLBACK HANDLER (APPROVE/REJECT) =================
-@bot.callback_query_handler(func=lambda call: call.data.startswith('wd_'))
-def handle_withdraw_callback(call):
-    if call.from_user.id != ADMIN_ID:
-        bot.answer_callback_query(call.id, "আপনি এডমিন নন!", show_alert=True)
-        return
-
-    data = call.data.split('_')
-    action = data[1]
-    target_id = int(data[2])
-    amount = float(data[3])
-
-    if action == "app":
-        number = data[4]
-        user = db_query("SELECT balance FROM USERS WHERE user_id=?", (target_id,), fetchone=True)
-        
-        if not user or user['balance'] < amount:
-            bot.answer_callback_query(call.id, "ইউজারের পর্যাপ্ত ব্যালেন্স নেই!", show_alert=True)
-            return
-
-        # ব্যালেন্স কেটে নেওয়া
-        db_query("UPDATE USERS SET balance = balance - ? WHERE user_id=?", (amount, target_id), commit=True)
-        
-        # ইউজারকে সাকসেস মেসেজ পাঠানো
-        success_msg = (
-            f"🎉 <b>কংগ্রাচুলেশন! আপনার উইথড্র সফল হয়েছে!</b>\n\n"
-            f"💰 পরিমাণ: <b>{amount:.2f} BDT</b>\n"
-            f"📱 নম্বর: <code>{number}</code>\n"
-            f"✅ স্ট্যাটাস: <b>Withdraw Success / Confirmed</b>\n\n"
-            f"Worker BD-এর সাথে থাকার জন্য ধন্যবাদ!"
-        )
-        try:
-            bot.send_message(target_id, success_msg)
-        except Exception:
-            pass
-
-        bot.edit_message_text(f"✅ <b>Withdraw Approved!</b>\nUser ID: <code>{target_id}</code>\nAmount: {amount} BDT", call.message.chat.id, call.message.message_id)
-        bot.answer_callback_query(call.id, "উইথড্র সফলভাবে এপ্রুভ করা হয়েছে!")
-
-    elif action == "rej":
-        # ইউজারকে বাতিল করার মেসেজ পাঠানো (ব্যালেন্স কাটা হবে না)
-        reject_msg = (
-            f"❌ <b>দুঃখিত! আপনার উইথড্র রিকোয়েস্টটি বাতিল করা হয়েছে।</b>\n\n"
-            f"💰 পরিমাণ: <b>{amount:.2f} BDT</b>\n\n"
-            f"দয়া করে সাপোর্ট আইডি বা এডমিনের সাথে যোগাযোগ করুন: @{SUPPORT_USERNAME}"
-        )
-        try:
-            bot.send_message(target_id, reject_msg)
-        except Exception:
-            pass
-
-        bot.edit_message_text(f"❌ <b>Withdraw Rejected!</b>\nUser ID: <code>{target_id}</code>\nAmount: {amount} BDT", call.message.chat.id, call.message.message_id)
-        bot.answer_callback_query(call.id, "উইথড্র রিজেক্ট করা হয়েছে!")
+    
+    bot.send_message(ADMIN_ID, admin_notif)
 
 # Clear Webhook
 requests.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook?drop_pending_updates=true")
