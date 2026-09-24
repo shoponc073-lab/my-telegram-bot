@@ -285,6 +285,7 @@ def handle_text(message):
     elif text == "🎧 Support":
         bot.send_message(user_id, f"🎧 Worker BD এডমিনের সাথে যোগাযোগ করতে মেসেজ দিন: @{SUPPORT_USERNAME}")
 
+# ================= WITHDRAW PROCESS =================
 def process_withdraw_amount(message):
     try:
         amount = float(message.text.strip())
@@ -301,9 +302,75 @@ def process_withdraw_amount(message):
 def process_withdraw_number(message, amount):
     number = message.text.strip()
     user_id = message.from_user.id
-    db_query("UPDATE USERS SET balance = balance - ? WHERE user_id=?", (amount, user_id), commit=True)
-    bot.send_message(user_id, f"✅ <b>উইথড্র রিকোয়েস্ট জমা হয়েছে!</b>\nপরিমাণ: {amount} BDT\nনম্বর: {number}")
-    bot.send_message(ADMIN_ID, f"💸 <b>Withdraw Request:</b>\nUser ID: <code>{user_id}</code>\nAmount: {amount} BDT\nNumber: <code>{number}</code>")
+    
+    # ইউজারকে পেন্ডিং নোটিফিকেশন দেওয়া
+    bot.send_message(user_id, f"⏳ <b>আপনার উইথড্র রিকোয়েস্টটি পেন্ডিং রয়েছে!</b>\n\nপরিমাণ: <b>{amount:.2f} BDT</b>\nনম্বর: <code>{number}</code>\n\nএডমিন রিভিউ করার পর আপনার পেমেন্ট সফল করা হবে।")
+    
+    # এডমিনকে এপ্রুভ ও রিজেক্ট বাটনের নোটিফিকেশন পাঠানো
+    markup = types.InlineKeyboardMarkup()
+    btn_approve = types.InlineKeyboardButton("✅ Approve", callback_data=f"wd_app_{user_id}_{amount}_{number}")
+    btn_reject = types.InlineKeyboardButton("❌ Reject", callback_data=f"wd_rej_{user_id}_{amount}")
+    markup.add(btn_approve, btn_reject)
+    
+    bot.send_message(
+        ADMIN_ID, 
+        f"💸 <b>নতুন Withdraw Request (Pending):</b>\n\nUser ID: <code>{user_id}</code>\nAmount: <b>{amount:.2f} BDT</b>\nNumber: <code>{number}</code>", 
+        reply_markup=markup
+    )
+
+# ================= CALLBACK HANDLER (APPROVE/REJECT) =================
+@bot.callback_query_handler(func=lambda call: call.data.startswith('wd_'))
+def handle_withdraw_callback(call):
+    if call.from_user.id != ADMIN_ID:
+        bot.answer_callback_query(call.id, "আপনি এডমিন নন!", show_alert=True)
+        return
+
+    data = call.data.split('_')
+    action = data[1]
+    target_id = int(data[2])
+    amount = float(data[3])
+
+    if action == "app":
+        number = data[4]
+        user = db_query("SELECT balance FROM USERS WHERE user_id=?", (target_id,), fetchone=True)
+        
+        if not user or user['balance'] < amount:
+            bot.answer_callback_query(call.id, "ইউজারের পর্যাপ্ত ব্যালেন্স নেই!", show_alert=True)
+            return
+
+        # ব্যালেন্স কেটে নেওয়া
+        db_query("UPDATE USERS SET balance = balance - ? WHERE user_id=?", (amount, target_id), commit=True)
+        
+        # ইউজারকে সাকসেস মেসেজ পাঠানো
+        success_msg = (
+            f"🎉 <b>কংগ্রাচুলেশন! আপনার উইথড্র সফল হয়েছে!</b>\n\n"
+            f"💰 পরিমাণ: <b>{amount:.2f} BDT</b>\n"
+            f"📱 নম্বর: <code>{number}</code>\n"
+            f"✅ স্ট্যাটাস: <b>Withdraw Success / Confirmed</b>\n\n"
+            f"Worker BD-এর সাথে থাকার জন্য ধন্যবাদ!"
+        )
+        try:
+            bot.send_message(target_id, success_msg)
+        except Exception:
+            pass
+
+        bot.edit_message_text(f"✅ <b>Withdraw Approved!</b>\nUser ID: <code>{target_id}</code>\nAmount: {amount} BDT", call.message.chat.id, call.message.message_id)
+        bot.answer_callback_query(call.id, "উইথড্র সফলভাবে এপ্রুভ করা হয়েছে!")
+
+    elif action == "rej":
+        # ইউজারকে বাতিল করার মেসেজ পাঠানো (ব্যালেন্স কাটা হবে না)
+        reject_msg = (
+            f"❌ <b>দুঃখিত! আপনার উইথড্র রিকোয়েস্টটি বাতিল করা হয়েছে।</b>\n\n"
+            f"💰 পরিমাণ: <b>{amount:.2f} BDT</b>\n\n"
+            f"দয়া করে সাপোর্ট আইডি বা এডমিনের সাথে যোগাযোগ করুন: @{SUPPORT_USERNAME}"
+        )
+        try:
+            bot.send_message(target_id, reject_msg)
+        except Exception:
+            pass
+
+        bot.edit_message_text(f"❌ <b>Withdraw Rejected!</b>\nUser ID: <code>{target_id}</code>\nAmount: {amount} BDT", call.message.chat.id, call.message.message_id)
+        bot.answer_callback_query(call.id, "উইথড্র রিজেক্ট করা হয়েছে!")
 
 # Clear Webhook
 requests.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook?drop_pending_updates=true")
@@ -311,3 +378,4 @@ requests.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook?drop_pending_up
 if __name__ == "__main__":
     Thread(target=run_flask).start()
     bot.infinity_polling()
+    
